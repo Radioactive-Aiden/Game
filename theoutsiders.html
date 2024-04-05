@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.17.1/matter.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #222;
+        }
+        canvas {
+            display: block;
+        }
+        #menu {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 100;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 25px;
+            background: #d3d3d3;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        .slider:hover {
+            opacity: 1;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="menu">
+    <button class="button" onclick="spawnCubes()">Spawn Cubes</button>
+    <button class="button" onclick="spawnBomb()">Spawn Bomb</button>
+    <button class="button" onclick="detonateBomb()">Detonate Bomb</button>
+    <br>
+    <label for="gravitySlider">Gravity:</label>
+    <input type="range" id="gravitySlider" class="slider" min="0" max="1" step="0.01" value="0.5" oninput="updateGravity(this.value)">
+</div>
+
+<script>
+    const { Engine, Render, World, Bodies, Body, MouseConstraint, Mouse } = Matter;
+
+    const engine = Engine.create();
+    const render = Render.create({
+        element: document.body,
+        engine: engine,
+        options: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            wireframes: false,
+            background: '#222'
+        }
+    });
+
+    const ground = Bodies.rectangle(render.options.width / 2, render.options.height - 20, render.options.width, 40, { isStatic: true });
+    const leftWall = Bodies.rectangle(0, render.options.height / 2, 20, render.options.height, { isStatic: true });
+    const rightWall = Bodies.rectangle(render.options.width, render.options.height / 2, 20, render.options.height, { isStatic: true });
+
+    World.add(engine.world, [ground, leftWall, rightWall]);
+
+    const mouse = Mouse.create(render.canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+        mouse: mouse,
+        constraint: {
+            render: { visible: false }
+        }
+    });
+
+    World.add(engine.world, mouseConstraint);
+
+    function spawnCubes() {
+        const numCubes = parseInt(prompt("Enter the number of cubes to spawn:"));
+        if (isNaN(numCubes)) {
+            return;
+        }
+        for (let i = 0; i < numCubes; i++) {
+            const x = Math.random() * render.options.width;
+            const y = Math.random() * render.options.height * 0.5;
+            const cube = Bodies.rectangle(x, y, 50, 50, {
+                render: {
+                    fillStyle: `rgb(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255})`
+                }
+            });
+            World.add(engine.world, cube);
+        }
+    }
+
+    function spawnBomb() {
+        const bomb = Bodies.circle(render.options.width / 2, 50, 20, {
+            render: {
+                sprite: {
+                    texture: "https://www.pngkit.com/png/full/52-527127_bomb-png-bomb-images-hd.png",
+                    xScale: 0.1,
+                    yScale: 0.1
+                }
+            },
+            label: "bomb"
+        });
+        World.add(engine.world, bomb);
+    }
+
+    function detonateBomb() {
+        const bombs = engine.world.bodies.filter(body => body.label === "bomb");
+        bombs.forEach(bomb => {
+            Body.applyForce(bomb, bomb.position, { x: (Math.random() - 0.5) * 0.05 * document.getElementById("bombPowerRange").value, y: (Math.random() - 0.5) * 0.05 * document.getElementById("bombPowerRange").value });
+            setTimeout(() => {
+                World.remove(engine.world, bomb);
+            }, 1000);
+        });
+    }
+
+    function updateGravity(value) {
+        engine.world.gravity.y = parseFloat(value);
+    }
+
+    document.body.addEventListener("mousedown", function (event) {
+        const objects = engine.world.bodies;
+        const mousePosition = { x: event.clientX, y: event.clientY };
+        for (let i = 0; i < objects.length; i++) {
+            const object = objects[i];
+            if (Matter.Bounds.contains(object.bounds, mousePosition)) {
+                const force = { x: object.position.x - mousePosition.x, y: object.position.y - mousePosition.y };
+                Matter.Body.applyForce(object, mousePosition, force);
+            }
+        }
+    });
+
+    Engine.run(engine);
+    Render.run(render);
+</script>
+</body>
+</html>
